@@ -43,6 +43,7 @@ type SuperAgent struct {
 	ForceType  string
 	Data       map[string]interface{}
 	FormData   url.Values
+	JsonData   []byte
 	QueryData  url.Values
 	Client     *http.Client
 	Transport  *http.Transport
@@ -64,6 +65,7 @@ func New() *SuperAgent {
 		Data:       make(map[string]interface{}),
 		Header:     make(map[string]string),
 		FormData:   url.Values{},
+		JsonData:   []byte{},
 		QueryData:  url.Values{},
 		Client:     &http.Client{Jar: jar},
 		Transport:  &http.Transport{},
@@ -94,6 +96,7 @@ func (s *SuperAgent) ClearSuperAgent() {
 	s.Header = make(map[string]string)
 	s.Data = make(map[string]interface{})
 	s.FormData = url.Values{}
+	s.JsonData = []byte{}
 	s.QueryData = url.Values{}
 	s.ForceType = ""
 	s.TargetType = "json"
@@ -182,6 +185,7 @@ func (s *SuperAgent) AddCookie(c *http.Cookie) *SuperAgent {
 var Types = map[string]string{
 	"html":       "text/html",
 	"json":       "application/json",
+	"json-only":  "application/json",
 	"xml":        "application/xml",
 	"urlencoded": "application/x-www-form-urlencoded",
 	"form":       "application/x-www-form-urlencoded",
@@ -409,6 +413,13 @@ func (s *SuperAgent) Send(content interface{}) *SuperAgent {
 	return s
 }
 
+func (s *SuperAgent) SendJSON(data []byte) *SuperAgent {
+	s.JsonData = data
+	s.TargetType = "json-only"
+	s.ForceType = "json-only"
+	return s
+}
+
 // sendStruct (similar to SendString) returns SuperAgent's itself for any next chain and takes content interface{} as a parameter.
 // Its duty is to transfrom interface{} (implicitly always a struct) into s.Data (map[string]interface{}) which later changes into appropriate format such as json, form, text, etc. in the End() func.
 func (s *SuperAgent) sendStruct(content interface{}) *SuperAgent {
@@ -537,7 +548,7 @@ func (s *SuperAgent) EndBytes(callback ...func(response Response, body []byte, e
 	}
 	// check if there is forced type
 	switch s.ForceType {
-	case "json", "form":
+	case "json", "json-only", "form":
 		s.TargetType = s.ForceType
 	}
 
@@ -546,6 +557,10 @@ func (s *SuperAgent) EndBytes(callback ...func(response Response, body []byte, e
 		if s.TargetType == "json" {
 			contentJson, _ := json.Marshal(s.Data)
 			contentReader := bytes.NewReader(contentJson)
+			req, err = http.NewRequest(s.Method, s.Url, contentReader)
+			req.Header.Set("Content-Type", "application/json")
+		} else if s.TargetType == "json-only" {
+			contentReader := bytes.NewReader(s.JsonData)
 			req, err = http.NewRequest(s.Method, s.Url, contentReader)
 			req.Header.Set("Content-Type", "application/json")
 		} else if s.TargetType == "form" {
