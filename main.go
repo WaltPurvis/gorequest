@@ -611,7 +611,7 @@ func (s *SuperAgent) EndBytes(callback ...func(response Response, body []byte, e
 	// from http.client trying to reuse a connection that was closed by the server
 	// this is a known bug/issue with the net/http client — it may get fixed in
 	// Go 1.6, or it may not, but Go 1.5 hasn't even been released yet, so...
-	req.Close = true
+	// req.Close = true
 	// setting req.Close destroys the ability to use HTTP Keep-Alive
 	// this means the client will open a new connection for every single request
 	// and that will be much less efficient and performant
