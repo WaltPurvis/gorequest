@@ -607,6 +607,17 @@ func (s *SuperAgent) EndBytes(callback ...func(response Response, body []byte, e
 		s.logger.Printf("HTTP Request: %s", string(dump))
 	}
 
+	// Added this because I was getting constant Broken Connection / EOF errors
+	// from http.client trying to reuse a connection that was closed by the server
+	// this is a known bug/issue with the net/http client — it may get fixed in
+	// Go 1.6, or it may not, but Go 1.5 hasn't even been released yet, so...
+	req.Close = true
+	// setting req.Close destroys the ability to use HTTP Keep-Alive
+	// this means the client will open a new connection for every single request
+	// and that will be much less efficient and performant
+	// so that sucks
+	// but there doesn't seem to be any other solution
+
 	// Send request
 	resp, err = s.Client.Do(req)
 
@@ -623,6 +634,7 @@ func (s *SuperAgent) EndBytes(callback ...func(response Response, body []byte, e
 		s.Errors = append(s.Errors, err)
 		return nil, nil, s.Errors
 	}
+
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
